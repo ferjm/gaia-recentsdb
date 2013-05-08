@@ -11,15 +11,6 @@
 
 var date = Date.now();
 
-function onSuccess(sms) {
-  console.log("onSuccess", sms);
-  next();
-}
-
-function onFailure(error) {
-  console.error("onFailure", error);
-}
-
 function assert(assertion, msg) {
   if (assertion) {
     console.info("TEST-PASS", msg);
@@ -28,6 +19,13 @@ function assert(assertion, msg) {
   }
 }
 
+var numbers = ['123', '456', '789'];
+var days = [// 5 Mar 2013
+            1362501392,
+            // 4 Mar 2013
+            1362414992,
+            // 3 Mar 2013
+            1362328592];
 var index = 0;
 var steps = [
   function() {
@@ -42,8 +40,46 @@ var steps = [
     };
   },
   function() {
-    console.log("Init RecentsDBManager");
-    RecentsDBManager.init(next);
+    console.log("Adding a call");
+    RecentsDBManager.add({
+      number: numbers[0],
+      type: 'incoming',
+      date: days[0]
+    }, function() {
+      RecentsDBManager.getGroupList(function(groups) {
+        assert(groups.length == 1, "groups length 1");
+        assert(groups[0].number == numbers[0], "number ok");
+        assert(groups[0].date == days[0], "date ok");
+        assert(groups[0].type == 'incoming', "type ok");
+        assert(groups[0].retryCount == 1, "retryCount ok");
+        RecentsDBManager.getRecentList(function(recents) {
+          assert(recents.length == 1, "recents length 1");
+          assert(recents[0].number == numbers[0], "number ok");
+          assert(recents[0].type == 'incoming', "type ok");
+          assert(recents[0].date == days[0], "date ok");
+          assert(recents[0].groupId == groups[0].id, "groupId ok");
+          next();
+        });
+      });
+    });
+  },
+  function() {
+    console.log("Update contact");
+    RecentsDBManager.updateGroupContactInfo(numbers[0], 'contactName', function(count) {
+      console.log("Groups updated " + count);
+      RecentsDBManager.getGroupList(function(groups) {
+        console.log("GRoups " + JSON.stringify(groups));
+        next();
+      });
+    });
+  },
+  function() {
+    console.log("Add another call");
+    RecentsDBManager.add({
+      number: numbers[1],
+      type: 'incoming',
+      date: days[1]
+    }, next);
   },
   function() {
     console.log("Getting the whole list of calls");
@@ -60,6 +96,30 @@ var steps = [
     RecentsDBManager.getGroupList(function(groups) {
       console.log(JSON.stringify(groups));
       console.log("Time to get list of groups " + (Date.now() - time) + "ms");
+      next();
+    });
+  },
+  function() {
+    console.log("Deleting a group");
+    var groupId = RecentsDBManager._generateGroupKey(numbers[0],
+                                                     days[0]);
+    RecentsDBManager.deleteGroup(groupId, function() {
+      next();
+    });
+  },
+  function() {
+    console.log("Getting the whole list of call groups");
+    var time = Date.now();
+    RecentsDBManager.getGroupList(function(groups) {
+      console.log(JSON.stringify(groups));
+      console.log("Time to get list of groups " + (Date.now() - time) + "ms");
+      next();
+    });
+  },
+  function() {
+    console.log("Getting the last group");
+    RecentsDBManager.getLastGroup(function(group) {
+      console.log(JSON.stringify(group));
       next();
     });
   },
